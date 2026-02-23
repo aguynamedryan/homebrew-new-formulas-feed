@@ -59,26 +59,33 @@ def fetch_new_formula_commits(token=None, max_pages=5):
     return all_items
 
 
-def fetch_formula_descriptions():
-    """Fetch all formula descriptions from the bulk Homebrew Formulae API."""
+def fetch_formula_metadata():
+    """Fetch formula descriptions and homepages from the bulk Homebrew Formulae API."""
     url = "https://formulae.brew.sh/api/formula.json"
     print(f"  Fetching {url} ...")
     req = urllib.request.Request(url)
     with urllib.request.urlopen(req) as resp:
         data = json.loads(resp.read())
     descriptions = {}
+    homepages = {}
     for formula in data:
         name = formula.get("name")
+        if not name:
+            continue
         desc = formula.get("desc")
-        if name and desc:
+        homepage = formula.get("homepage")
+        if desc:
             descriptions[name] = desc
-    print(f"  Loaded descriptions for {len(descriptions)} formulas")
-    return descriptions
+        if homepage:
+            homepages[name] = homepage
+    print(f"  Loaded metadata for {len(descriptions)} formulas")
+    return descriptions, homepages
 
 
-def generate_atom_feed(commits, feed_url, descriptions=None):
+def generate_atom_feed(commits, feed_url, descriptions=None, homepages=None):
     """Generate an Atom XML feed from commit data."""
     descriptions = descriptions or {}
+    homepages = homepages or {}
     feed = Element(atom("feed"))
 
     title = SubElement(feed, atom("title"))
@@ -130,11 +137,14 @@ def generate_atom_feed(commits, feed_url, descriptions=None):
         author_name.text = commit["commit"]["author"]["name"]
 
         brew_url = f"https://formulae.brew.sh/formula/{formula_name}"
+        homepage = homepages.get(formula_name)
         content = SubElement(entry, atom("content"), type="html")
         desc_html = f"<p><em>{desc}</em></p>" if desc else ""
+        homepage_html = f'<p><a href="{homepage}">Homepage</a></p>' if homepage else ""
         content.text = (
             f'<p><a href="{brew_url}">{formula_name}</a> {version}</p>'
             f'{desc_html}'
+            f'{homepage_html}'
             f'<p><a href="{commit["html_url"]}">View commit</a></p>'
         )
 
@@ -152,10 +162,10 @@ def main():
     commits = fetch_new_formula_commits(token)
     print(f"Found {len(commits)} search results")
 
-    print("Fetching formula descriptions...")
-    descriptions = fetch_formula_descriptions()
+    print("Fetching formula metadata...")
+    descriptions, homepages = fetch_formula_metadata()
 
-    tree = generate_atom_feed(commits, feed_url, descriptions)
+    tree = generate_atom_feed(commits, feed_url, descriptions, homepages)
 
     out_dir = Path("public")
     out_dir.mkdir(exist_ok=True)
