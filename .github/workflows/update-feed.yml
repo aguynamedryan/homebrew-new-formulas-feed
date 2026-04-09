@@ -12,6 +12,12 @@ permissions:
   pages: write
   id-token: write
 
+# Force Node.js 24 for transitive JS actions (e.g. upload-artifact called by
+# upload-pages-artifact@v4) that still pin Node 20. Node 20 will be removed
+# from runners on 2026-09-16.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: pages
   cancel-in-progress: false
