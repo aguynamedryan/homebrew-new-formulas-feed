@@ -4,6 +4,7 @@
 import json
 import os
 import re
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -51,7 +52,7 @@ def atom(tag):
     return f"{{{ATOM_NS}}}{tag}"
 
 
-def fetch_new_commits(kind, token=None, max_pages=5):
+def fetch_new_commits(kind, token=None, max_pages=3):
     """Search for commits containing the 'new formula' / 'new cask' marker in the relevant repo.
 
     Paginates through results because the search also matches merge commits
@@ -85,6 +86,12 @@ def fetch_new_commits(kind, token=None, max_pages=5):
 
         if len(items) < 100:
             break
+
+        # Sleep between pages to stay under GitHub's search API secondary
+        # rate limit, which throttles bursts more aggressively than the
+        # documented 30 req/min authenticated limit.
+        if page < max_pages:
+            time.sleep(2)
 
     return all_items
 
