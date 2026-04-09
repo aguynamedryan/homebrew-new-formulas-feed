@@ -25,7 +25,7 @@ KINDS = {
         "page_url_template": "https://formulae.brew.sh/formula/{name}",
         "feed_title": "Homebrew New Formulas",
         "feed_subtitle": "New formulas added to Homebrew",
-        "feed_filename": "feed.xml",
+        "feed_filename": "formulas.xml",
         "metadata_key": "name",
         "alt_link": "https://github.com/Homebrew/homebrew-core",
         "label": "formula",
@@ -186,6 +186,72 @@ def generate_atom_feed(kind, commits, feed_url, descriptions=None, homepages=Non
     return ElementTree(feed)
 
 
+# Stable identifiers for the legacy feed.xml redirect notice. These MUST NOT
+# change across runs — feed readers dedupe on id, and a drifting updated
+# timestamp would cause the notice to re-appear on every 4-hour regen.
+MOVED_NOTICE_ID = "urn:homebrew-new-formulas-feed:feed-moved:2026-04-09"
+MOVED_NOTICE_DATE = "2026-04-09T00:00:00Z"
+
+
+def write_moved_notice(base_url, out_dir):
+    """Write a minimal Atom feed at feed.xml telling subscribers the feed moved.
+
+    The legacy URL was feed.xml before the rename to formulas.xml. Existing
+    feed-reader subscriptions still point there, so we keep a one-entry stub
+    at that URL to nudge subscribers to the new location.
+    """
+    new_url = base_url + "formulas.xml"
+    casks_url = base_url + "casks.xml"
+    old_url = base_url + "feed.xml"
+
+    feed = Element(atom("feed"))
+
+    title = SubElement(feed, atom("title"))
+    title.text = "Homebrew New Formulas (moved)"
+
+    SubElement(feed, atom("link"), href=new_url, rel="alternate")
+    SubElement(feed, atom("link"), href=old_url, rel="self")
+
+    feed_id = SubElement(feed, atom("id"))
+    feed_id.text = old_url
+
+    subtitle = SubElement(feed, atom("subtitle"))
+    subtitle.text = f"This feed has moved to {new_url}"
+
+    updated = SubElement(feed, atom("updated"))
+    updated.text = MOVED_NOTICE_DATE
+
+    entry = SubElement(feed, atom("entry"))
+
+    entry_title = SubElement(entry, atom("title"))
+    entry_title.text = "This feed has moved — please update your subscription"
+
+    SubElement(entry, atom("link"), href=new_url, rel="alternate")
+
+    entry_id = SubElement(entry, atom("id"))
+    entry_id.text = MOVED_NOTICE_ID
+
+    entry_updated = SubElement(entry, atom("updated"))
+    entry_updated.text = MOVED_NOTICE_DATE
+
+    author = SubElement(entry, atom("author"))
+    author_name = SubElement(author, atom("name"))
+    author_name.text = "Homebrew New Formulas Feed"
+
+    content = SubElement(entry, atom("content"), type="html")
+    content.text = (
+        f"<p>The Homebrew new formulas feed has moved to a new URL:</p>"
+        f'<p><a href="{new_url}">{new_url}</a></p>'
+        f"<p>Please update your feed reader subscription. There is also a "
+        f'separate feed for new casks at <a href="{casks_url}">{casks_url}</a>.</p>'
+    )
+
+    tree = ElementTree(feed)
+    out_path = out_dir / "feed.xml"
+    tree.write(str(out_path), encoding="unicode", xml_declaration=True)
+    print(f"Wrote redirect notice feed at {out_path}")
+
+
 def build_feed(kind, base_url, token, out_dir):
     config = KINDS[kind]
     feed_url = base_url + config["feed_filename"]
@@ -221,6 +287,8 @@ def main():
 
     for kind in KINDS:
         build_feed(kind, base_url, token, out_dir)
+
+    write_moved_notice(base_url, out_dir)
 
 
 if __name__ == "__main__":

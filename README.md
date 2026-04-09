@@ -3,7 +3,7 @@
 Atom feeds of new formulas and casks added to [Homebrew](https://brew.sh/).
 
 **Subscribe:**
-- Formulas: [`https://aguynamedryan.github.io/homebrew-new-formulas-feed/feed.xml`](https://aguynamedryan.github.io/homebrew-new-formulas-feed/feed.xml)
+- Formulas: [`https://aguynamedryan.github.io/homebrew-new-formulas-feed/formulas.xml`](https://aguynamedryan.github.io/homebrew-new-formulas-feed/formulas.xml)
 - Casks: [`https://aguynamedryan.github.io/homebrew-new-formulas-feed/casks.xml`](https://aguynamedryan.github.io/homebrew-new-formulas-feed/casks.xml)
 
 Add either URL to any RSS/Atom reader (Feedly, FreshRSS, NetNewsWire, Vienna, etc.) to get notified when new formulas or casks land.
