@@ -1,0 +1,10 @@
+# Generated output
+public/
+
+# Local Claude Code settings (per-user)
+.claude/settings.local.json
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
