@@ -48,3 +48,21 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  # Keep this scheduled workflow from being auto-disabled after 60 days of
+  # repository inactivity. On every scheduled run we re-enable the workflow via
+  # GitHub's own API, which resets the inactivity countdown — no dummy commits
+  # and no Personal Access Token required. (Same idea as the
+  # liskin/gh-workflow-keepalive action, inlined to avoid a third-party
+  # dependency.) Runs independently of the feed job, so it still fires even when
+  # feed generation fails.
+  keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Re-enable this workflow to dodge the 60-day inactivity auto-disable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable "${{ github.workflow }}" --repo "${{ github.repository }}"
