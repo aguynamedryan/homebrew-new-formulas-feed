@@ -8,3 +8,10 @@ public/
 .dolt/
 *.db
 .beads-credential-key
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# Local debug/scratch output
+claude_stuff/

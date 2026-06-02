@@ -5,6 +5,7 @@ import json
 import os
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -52,6 +53,52 @@ def atom(tag):
     return f"{{{ATOM_NS}}}{tag}"
 
 
+def _rate_limit_delay(http_error, attempt):
+    """Seconds to wait before retrying a rate-limited GitHub request.
+
+    Prefer the server's own guidance (Retry-After, or X-RateLimit-Reset when the
+    primary quota is exhausted); otherwise back off exponentially. Capped so a
+    single throttled page can't stall the run for long.
+    """
+    headers = http_error.headers
+    retry_after = headers.get("Retry-After")
+    if retry_after and retry_after.strip().isdigit():
+        return min(int(retry_after), 60)
+    if headers.get("X-RateLimit-Remaining") == "0":
+        reset = headers.get("X-RateLimit-Reset")
+        if reset and reset.strip().isdigit():
+            return max(1, min(int(reset) - int(time.time()), 60))
+    return min(5 * 2 ** attempt, 60)  # 5, 10, 20, 40, 60...
+
+
+def _request_json(url, token=None, accept="application/vnd.github+json", max_retries=4):
+    """GET `url` and parse JSON, retrying GitHub's rate-limit responses.
+
+    The search API enforces an aggressive secondary (abuse) rate limit that
+    returns 403 on bursts even while the primary quota is intact, so we retry
+    403/429 responses with backoff rather than letting one throttled request
+    abort the whole feed build. Other HTTP errors propagate immediately.
+    """
+    for attempt in range(max_retries + 1):
+        req = urllib.request.Request(url)
+        req.add_header("Accept", accept)
+        req.add_header("User-Agent", "homebrew-new-formulas-feed")
+        if token:
+            req.add_header("Authorization", f"Bearer {token}")
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (403, 429) or attempt == max_retries:
+                raise
+            delay = _rate_limit_delay(exc, attempt)
+            print(
+                f"  Rate limited (HTTP {exc.code}); retrying in {delay}s "
+                f"(attempt {attempt + 1}/{max_retries})"
+            )
+            time.sleep(delay)
+
+
 def fetch_new_commits(kind, token=None, max_pages=3):
     """Search for commits containing the 'new formula' / 'new cask' marker in the relevant repo.
 
@@ -72,13 +119,20 @@ def fetch_new_commits(kind, token=None, max_pages=3):
         })
         url = f"{GITHUB_API}/search/commits?{params}"
 
-        req = urllib.request.Request(url)
-        req.add_header("Accept", "application/vnd.github+json")
-        if token:
-            req.add_header("Authorization", f"Bearer {token}")
-
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read())
+        try:
+            data = _request_json(url, token)
+        except urllib.error.HTTPError as exc:
+            # Retries on this page are exhausted. If earlier pages already
+            # returned results, proceed with those instead of failing the whole
+            # run. If even page 1 fails, re-raise so the job fails loudly and
+            # GitHub Pages keeps the last good feed (better than an empty one).
+            if all_items:
+                print(
+                    f"  Page {page}: HTTP {exc.code} after retries; continuing "
+                    f"with {len(all_items)} results from earlier pages"
+                )
+                break
+            raise
 
         items = data.get("items", [])
         all_items.extend(items)
@@ -102,9 +156,7 @@ def fetch_metadata(kind):
     key_field = config["metadata_key"]
     url = config["api_url"]
     print(f"  Fetching {url} ...")
-    req = urllib.request.Request(url)
-    with urllib.request.urlopen(req) as resp:
-        data = json.loads(resp.read())
+    data = _request_json(url, accept="application/json")
     descriptions = {}
     homepages = {}
     for item in data:
