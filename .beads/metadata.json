@@ -1,8 +1,7 @@
 {
   "database": "dolt",
   "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_server_port": 3308,
+  "dolt_mode": "embedded",
   "dolt_database": "homebrew_feed",
   "project_id": "d9d845cf-82f2-429d-85f0-ac730cd32146"
 }

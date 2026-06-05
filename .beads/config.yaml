@@ -61,4 +61,4 @@
 # - github.org
 # - github.repo
 
-dolt.shared-server: true
+dolt.shared-server: false
