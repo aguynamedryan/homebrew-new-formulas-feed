@@ -65,4 +65,10 @@ jobs:
       - name: Re-enable this workflow to dodge the 60-day inactivity auto-disable
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow enable "${{ github.workflow }}" --repo "${{ github.repository }}"
+        # Hit the enable REST endpoint addressed by FILENAME. The previous
+        # `gh workflow enable "${{ github.workflow }}"` passed the display name
+        # ("Update Feed"), which the runner's gh failed to resolve ("could not
+        # find any workflows named Update Feed"). The endpoint accepts the
+        # workflow filename directly, skipping name resolution; it needs only the
+        # actions:write scope granted below.
+        run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/update-feed.yml/enable"
