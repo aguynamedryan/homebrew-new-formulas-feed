@@ -62,3 +62,5 @@
 # - github.repo
 
 dolt.shared-server: false
+
+sync.remote: "git+https://github.com/aguynamedryan/homebrew-new-formulas-feed.git"
