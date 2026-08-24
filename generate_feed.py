@@ -217,7 +217,12 @@ def generate_atom_feed(kind, commits, feed_url, descriptions=None, homepages=Non
         else:
             entry_title.text = message
 
-        SubElement(entry, atom("link"), href=commit["html_url"], rel="alternate")
+        page_url = config["page_url_template"].format(name=name)
+        homepage = homepages.get(name)
+        # Feed readers such as Vienna open this alternate link for the selected
+        # entry. Prefer the project's own homepage; the Homebrew page is a
+        # useful destination when the package does not declare one.
+        SubElement(entry, atom("link"), href=homepage or page_url, rel="alternate")
 
         entry_id = SubElement(entry, atom("id"))
         entry_id.text = commit["sha"]
@@ -230,8 +235,6 @@ def generate_atom_feed(kind, commits, feed_url, descriptions=None, homepages=Non
         author_name = SubElement(author, atom("name"))
         author_name.text = commit["commit"]["author"]["name"]
 
-        page_url = config["page_url_template"].format(name=name)
-        homepage = homepages.get(name)
         content = SubElement(entry, atom("content"), type="html")
         desc_html = f"<p><em>{desc}</em></p>" if desc else ""
         homepage_html = f'<p><a href="{homepage}">Homepage</a></p>' if homepage else ""
